@@ -1,11 +1,11 @@
 from dash import Dash, html, dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
-from pages import page_control, page_2, page_3
+
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 app.title = "MiR Control"
-
+from pages import page_control, page_2, page_3
 # Thanh Taskbar ngang cố định
 navbar = dbc.NavbarSimple(
     children=[
