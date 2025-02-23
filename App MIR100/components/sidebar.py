@@ -5,7 +5,7 @@ class Sidebar:
     def create_sidebar(self):
         return html.Div(
             [
-                html.H2("Automation Inc", className="text-white text-center"),
+                html.H2("GUI MIR100", className="text-white text-center"),
                 html.Hr(className="text-white"),
                 dbc.Nav(
                     [

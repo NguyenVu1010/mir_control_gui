@@ -1,9 +1,12 @@
+# app.py
 import dash
 from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 import dash_daq as daq
 from components import LoginPage, ChangePasswordPage, Sidebar, StatusBar, MapSection
 from utils.data import authenticate, user_credentials, update_password
+import time  # Thêm thư viện time
+import datetime
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -13,7 +16,6 @@ change_password_page = ChangePasswordPage()
 sidebar = Sidebar()
 status_bar = StatusBar()
 map_section = MapSection()
-
 
 # Main app layout (initially set to the login layout)
 app.layout = html.Div(id="app-container", children=[login_page.layout])
@@ -136,7 +138,7 @@ def change_language(language):
         [
             html.H3(translation['title'], className="mb-3", style={"color": "#2C3E50"}),
             html.P(translation['map'], className="text-muted"),
-            html.Img(src="/home/duc/Downloads/gui_map/map_image.png", style={"width": "100%", "border": "2px solid #34495E"}),
+            html.Img(src="/path/to/save/map_image.png", style={"width": "100%", "border": "2px solid #34495E"}),
             html.P(translation['ready'], className="text-info mt-2"),
             html.Div(id="content-area"),  # Placeholder for content based on sidebar selection
         ],
@@ -148,6 +150,30 @@ def change_language(language):
             "marginTop": "50px",
         },
     )
+
+# Callback to update map image
+@app.callback(
+    Output("map-image", "src"),
+    Input("interval-component", "n_intervals")
+)
+def update_map_image(n):
+    # Add a timestamp to the image URL to force refresh
+    return f"/static/map_image.png?{int(time.time())}"
+
+@app.callback(
+    Output("map-graph", "figure"),
+    Input(component_id='interval-component', component_property='n_intervals')
+)
+def update_graph_figure(n):
+    return map_section.create_figure()
+
+@app.callback(
+    Output("lidar-image", "src"),
+    Input(component_id='interval-component', component_property='n_intervals')
+)
+def update_map_image(n):
+    time_img = datetime.now()
+    return "static/map_image.png?{}".format(time_img) #Force server to refresh img
 
 if __name__ == "__main__":
     app.run_server(debug=True)
