@@ -4,7 +4,7 @@ from sensor_msgs.msg import LaserScan
 from PIL import Image, ImageDraw
 import numpy as np
 import tf
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PointStamped
 
 image_path = "/home/duc/Downloads/App MIR100/static/map_image.png"
 img = Image.open(image_path)
@@ -14,11 +14,10 @@ POINT_SIZE = 1
 
 def process_lidar_data(msg, tf_listener, is_back):
     points = []
-
     if is_back:
-        frame_id = '/back_laser_link'
+        frame_id = "back_laser_link"
     else:
-        frame_id = '/front_laser_link'
+        frame_id = "front_laser_link"
 
     for i in range(len(msg.ranges)):
         r = msg.ranges[i]
@@ -27,17 +26,18 @@ def process_lidar_data(msg, tf_listener, is_back):
         if r < msg.range_max and r > msg.range_min and r < LIDAR_RANGE:
             x = r * np.cos(angle)
             y = r * np.sin(angle)
-            point_stamped = PoseStamped()
+            point_stamped = PointStamped()
             point_stamped.header.frame_id = frame_id
-            point_stamped.header.stamp = rospy.Time(0)
-            point_stamped.pose.position.x = x
-            point_stamped.pose.position.y = y
-            point_stamped.pose.position.z = 0.0  
-            point_stamped.pose.orientation.w = 1.0
-
+            point_stamped.header.stamp = msg.header.stamp 
+            point_stamped.point.x = x
+            point_stamped.point.y = y
             try:
-                transformed_point = tf_listener.transformPose("/map", point_stamped)
-                points.append((transformed_point.pose.position.x, transformed_point.pose.position.y))
+                tf_listener.waitForTransform("map", frame_id, msg.header.stamp, rospy.Duration(1)) 
+                if tf_listener.canTransform("map", frame_id, msg.header.stamp):
+                    transformed_point = tf_listener.transformPoint("map", point_stamped)
+                    points.append((transformed_point.point.x, transformed_point.point.y))
+                else:
+                    rospy.logwarn("Cannot transform point: Transformation not available.")
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
                 rospy.logwarn(f"TF error: {e}")
                 continue
@@ -58,9 +58,22 @@ def create_lidar_image(points):
     min_y = min(all_y)
     max_y = max(all_y)
 
+    width = max_x - min_x
+    height = max_y - min_y
+
+    if width == 0 or height == 0:
+        return img 
+
+    aspect_ratio = width / height
+    image_aspect_ratio = IMAGE_WIDTH / IMAGE_HEIGHT
+
+    if aspect_ratio > image_aspect_ratio:
+        scale = IMAGE_WIDTH / width
+    else:
+        scale = IMAGE_HEIGHT / height
     for point_x, point_y in points:
-        px = int(((point_x - min_x) / (max_x - min_x)) * IMAGE_WIDTH)
-        py = IMAGE_HEIGHT - int(((point_y - min_y) / (max_y - min_y)) * IMAGE_HEIGHT)
+        px = int((point_x - min_x) * scale) 
+        py = IMAGE_HEIGHT - (int((point_y - min_y) * scale))
         draw.ellipse((px - POINT_SIZE, py - POINT_SIZE, px + POINT_SIZE, py + POINT_SIZE), fill=(255, 0, 0)) 
 
     return img

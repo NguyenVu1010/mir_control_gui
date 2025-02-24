@@ -53,6 +53,20 @@ class MapSection:
                                 "z-index": "2",  # Lidar image is above map image
                             },
                         ),
+                        html.Img(
+                            id="path-image",
+                            src="/static/path_image.png",
+                            style={
+                                "width": "800px",  # Same size as map image
+                                "height": "600px",
+                                "border": "2px solid #34495E",
+                                "object-fit": "contain",
+                                "position": "absolute",  # Position the lidar image
+                                "top": "0",  # Align with map image
+                                "left": "0",  # Align with map image
+                                "z-index": "3",  # Lidar image is above map image
+                            },
+                        ),
                     ],
                     style={
                         "position": "relative",  # Container for absolute positioning

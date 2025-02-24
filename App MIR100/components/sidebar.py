@@ -1,3 +1,4 @@
+# sidebar.py
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
@@ -5,11 +6,15 @@ class Sidebar:
     def create_sidebar(self):
         return html.Div(
             [
-                html.H2("GUI MIR100", className="text-white text-center"),
+                dcc.Link(  
+                    html.H2("GUI MIR100", className="text-white text-center"),
+                    href="/",  
+                    style={"text-decoration": "none", "color": "white"}, 
+                ),
                 html.Hr(className="text-white"),
                 dbc.Nav(
                     [
-                        dbc.NavLink("Missions", href="#", id="missions-link", className="text-white"),
+                        dbc.NavLink("Draw Mode", href="/draw-mode", id="draw-mode-link", className="text-white"),
                         dbc.NavLink("Maps", href="#", id="maps-link", className="text-white"),
                         dbc.NavLink("Sounds", href="#", id="sounds-link", className="text-white"),
                         dbc.NavLink("Transitions", href="#", id="transitions-link", className="text-white"),
@@ -20,7 +25,7 @@ class Sidebar:
                         dbc.NavLink("Path Guides", href="#", id="path-guides-link", className="text-white"),
                         dbc.NavLink("Marker Types", href="#", id="marker-types-link", className="text-white"),
                         dbc.NavLink("Footprints", href="#", id="footprints-link", className="text-white"),
-                        dbc.NavLink("Change Password", href="#", id="change-password-link", className="text-white"),
+                        dbc.NavLink("Change Password", href="/change-password", id="change-password-link", className="text-white"), 
                     ],
                     vertical=True,
                     pills=True,

@@ -1,16 +1,8 @@
 import rospy
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 import io
-import base64
-from geometry_msgs.msg import PoseStamped
-import math
-import tf
-
-IMAGE_WIDTH = 800
-IMAGE_HEIGHT = 600
-LIDAR_RANGE = 10
 
 def map_callback(map_data):
     try:

@@ -5,21 +5,39 @@ import dash_bootstrap_components as dbc
 import dash_daq as daq
 from components import LoginPage, ChangePasswordPage, Sidebar, StatusBar, MapSection
 from utils.data import authenticate, user_credentials, update_password
-import time  
-import datetime
+import time
+import random
+import rospy
+from components.draw_mode import create_draw_mode_layout
+from function_draw_mode.draw_line_callback import *  # Import các callback từ draw_line_callback.py
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+# Khởi tạo ứng dụng Dash
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
+    ],
+    suppress_callback_exceptions=True,
+    external_scripts=["assets/script.js"]  # Thêm script bên ngoài nếu cần
+)
 
-# Instantiate components
+# Khởi tạo các component
 login_page = LoginPage()
 change_password_page = ChangePasswordPage()
 sidebar = Sidebar()
 status_bar = StatusBar()
 map_section = MapSection()
 
-app.layout = html.Div(id="app-container", children=[login_page.layout])
+# Định nghĩa layout chính của ứng dụng
+app.layout = html.Div(
+    [
+        dcc.Location(id='url', refresh=False),  # Theo dõi URL
+        html.Div(id="app-container", children=[login_page.layout])  # Container chính
+    ]
+)
 
-# Callback for the login button
+# Callback xử lý đăng nhập
 @app.callback(
     Output("app-container", "children"),
     Input("login-button", "n_clicks"),
@@ -31,44 +49,35 @@ def login(n_clicks, username, password):
     if authenticate(username, password):
         return html.Div(
             [
+                dcc.Location(id='url', refresh=False),
                 status_bar.create_status_bar(),
                 sidebar.create_sidebar(),
-                map_section.create_map_section(),
-                dcc.Interval(id="interval-component", interval=1000, n_intervals=0),  # Add Interval component
+                html.Div(id="page-content", style={"marginLeft": "250px"}),
             ],
             style={"background": "#BDC3C7", "height": "100vh", "overflow": "hidden"},
         )
     else:
         return html.Div([login_page.layout, html.Div("Login Failed", style={"color": "red"})])
 
-# Callback for updating content based on sidebar selection
+# Callback cập nhật nội dung trang dựa trên URL
 @app.callback(
-    Output("content-area", "children"),
-    Input("sidebar-nav", "n_clicks"),
-    State("sidebar-nav", "children"),
-    prevent_initial_call=True
+    Output('page-content', 'children'),
+    Input('url', 'pathname')
 )
-def update_content(n_clicks, nav_links):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return html.P("Select a function from the sidebar")
-
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    link_id = next((i for i in nav_links[2]["props"]["children"] if i["props"]["id"] == button_id), None)
-
-    if link_id:
-        if link_id["props"]["id"] == "missions-link":
-            return html.Div("Missions content here")
-        elif link_id["props"]["id"] == "maps-link":
-            return html.Div("Maps content here")
-        elif link_id["props"]["id"] == "change-password-link":
-            return change_password_page.layout  # Render change password layout
-        else:
-            return html.Div(f"Content for {link_id['props']['id']}")
+def display_page(pathname):
+    if pathname == '/draw-mode':
+        return create_draw_mode_layout()  # Trang vẽ
+    elif pathname == '/maps':
+        return map_section.create_map_section()  # Trang bản đồ
+    elif pathname == '/change-password':
+        return change_password_page.layout  # Trang đổi mật khẩu
     else:
-        return html.Div("Nothing to show.")
+        return html.Div([
+            status_bar.create_status_bar(),
+            map_section.create_map_section()
+        ])  # Trang mặc định (bản đồ)
 
-# Callback for password update
+# Callback cập nhật mật khẩu
 @app.callback(
     Output("password-status", "children"),
     Input("update-password-button", "n_clicks"),
@@ -79,7 +88,7 @@ def update_content(n_clicks, nav_links):
 def update_password_callback(n_clicks, new_password, confirm_password):
     if new_password == confirm_password:
         global user_credentials
-        username = list(user_credentials.keys())[0]  # Get the username (in this example, it's "admin")
+        username = list(user_credentials.keys())[0]  # Lấy username (ví dụ: "admin")
         if update_password(username, new_password):
             return html.Div("Password updated successfully!", style={"color": "green"})
         else:
@@ -87,7 +96,7 @@ def update_password_callback(n_clicks, new_password, confirm_password):
     else:
         return html.Div("Passwords do not match.", style={"color": "red"})
 
-# Callback for joystick popup
+# Callback hiển thị popup joystick
 @app.callback(
     Output("joystick-popup-container", "children"),
     Input("open-joystick-btn", "n_clicks"),
@@ -98,7 +107,7 @@ def open_joystick(n_clicks):
         [
             dbc.ModalHeader(dbc.ModalTitle("Joystick Control")),
             dbc.ModalBody(
-                daq.Joystick(id="joystick", label="Joystick", angle=0, force=0, size=150)  # Adjusted size
+                daq.Joystick(id="joystick", label="Joystick", angle=0, force=0, size=150)
             ),
             dbc.ModalFooter(
                 dbc.Button("Close", id="close-joystick-btn", className="ms-auto", n_clicks=0)
@@ -106,21 +115,21 @@ def open_joystick(n_clicks):
         ],
         id="joystick-modal",
         is_open=True,
-        centered=True,  # Center the modal
-        size="lg",  # Adjust size as needed
+        centered=True,
+        size="lg",
     )
 
-# Callback for closing joystick
+# Callback đóng popup joystick
 @app.callback(
     Output("joystick-modal", "is_open"),
     Input("close-joystick-btn", "n_clicks"),
     State("joystick-modal", "is_open"),
-    prevent_initial_call=True,
+    prevent_initial_call=True
 )
 def close_joystick(n_clicks, is_open):
     return not is_open
 
-
+# Callback thay đổi ngôn ngữ
 @app.callback(
     Output('map_section', 'children'),
     Input('language-dropdown', 'value')
@@ -149,20 +158,25 @@ def change_language(language):
         },
     )
 
+# Callback cập nhật hình ảnh bản đồ
 @app.callback(
     Output("map-image", "src"),
     Input("interval-component", "n_intervals")
 )
 def update_map_image(n):
-    return f"/static/map_image.png?{int(time.time())}"
+    timestamp = int(time.time())
+    return f"/static/map_image.png?{timestamp}"
 
+# Callback cập nhật hình ảnh lidar
 @app.callback(
     Output("lidar-image", "src"),
     Input("interval-component", "n_intervals")
 )
 def update_lidar_image(n):
-    return f"/static/lidar_image.png?{int(time.time())}"
+    timestamp = int(time.time())
+    return f"/static/lidar_image.png?{timestamp}"
 
+# Callback cập nhật đồ thị bản đồ
 @app.callback(
     Output("map-graph", "figure"),
     Input(component_id='interval-component', component_property='n_intervals')
@@ -170,6 +184,7 @@ def update_lidar_image(n):
 def update_graph_figure(n):
     return map_section.create_figure()
 
+# Callback cập nhật hình ảnh lidar (trước và sau)
 @app.callback(
     [Output("lidar-f-image", "src"), Output("lidar-b-image", "src")],
     Input("interval-component", "n_intervals")
@@ -177,9 +192,31 @@ def update_graph_figure(n):
 def update_lidar_images(n):
     timestamp = int(time.time())
     return (
-        f"/static/b_scan_image.png?{timestamp}",  
-        f"/static/b_scan_image.png?{timestamp}"   
+        f"/static/b_scan_image.png?{timestamp}",
+        f"/static/b_scan_image.png?{timestamp}"
     )
 
+# Callback cập nhật hình ảnh đường đi
+@app.callback(
+    [Output("path-image", "src")],
+    Input("interval-component", "n_intervals")
+)
+def update_path_image(n):
+    random_value = random.randint(1, 100000)
+    return (
+        f"/static/path_image.png?random={random_value}",
+    )
+
+# Callback cập nhật hình ảnh bản đồ trong chế độ vẽ
+@app.callback(
+    Output("map-image-draw-mode", "src"),
+    Input("interval-component", "n_intervals")
+)
+def update_map_image_draw_mode(n):
+    timestamp = int(time.time())
+    return f"/static/map_image.png?{timestamp}"
+
+# Chạy ứng dụng
 if __name__ == "__main__":
+    rospy.init_node('dash_app', anonymous=True)
     app.run_server(debug=True)
