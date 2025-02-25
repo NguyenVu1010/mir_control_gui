@@ -3,7 +3,6 @@ from nav_msgs.msg import Path
 from PIL import Image, ImageDraw
 from nav_msgs.msg import OccupancyGrid
 
-
 OUTPUT_IMAGE_PATH = "/home/duc/Downloads/App MIR100/static/path_image.png"
 image_path = "/home/duc/Downloads/App MIR100/static/map_image.png"
 img = Image.open(image_path)

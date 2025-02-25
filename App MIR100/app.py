@@ -287,6 +287,16 @@ def update_path_image(n):
     )
 
 @app.callback(
+    [Output("robot-image", "src")],
+    Input("interval-component", "n_intervals")
+)
+def update_robot_image(n):
+    random_value = random.randint(1, 100000)
+    return (
+        f"/static/robot_image.png?random={random_value}",
+    )
+
+@app.callback(
     Output("map-image-draw-mode", "src"),
     Input("interval-component", "n_intervals")
 )

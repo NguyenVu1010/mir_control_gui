@@ -2,9 +2,11 @@ import rospy
 import tf
 from nav_msgs.msg import Path, OccupancyGrid
 from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from listener_topic_from_ros.ros_lidar_listener import *
 from listener_topic_from_ros.ros_map_listener import *
 from listener_topic_from_ros.ros_path_listener import *
+from listener_topic_from_ros.ros_pose_robot_listener import *
 
 def main():
     rospy.init_node('main_node', anonymous=True)
@@ -21,7 +23,8 @@ def main():
     rospy.Subscriber("/f_scan", LaserScan, lambda msg: scan_callback(msg, tf_listener, "/f_scan"))
     rospy.Subscriber("/b_scan", LaserScan, lambda msg: scan_callback(msg, tf_listener, "/b_scan"))
     rospy.Subscriber("/map", OccupancyGrid, map_callback)
-    
+    rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback, tf_listener)
+
     rospy.spin() 
 
 if __name__ == '__main__':

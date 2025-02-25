@@ -1,119 +1,106 @@
-# robot_position_map.py
-import dash
-from dash import dcc, html, Input, Output
-import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
+#!/usr/bin/env python
+
 import rospy
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from PIL import Image, ImageDraw
+from nav_msgs.msg import OccupancyGrid
+import math
 import tf
-import numpy as np
+import tf.transformations
 
-# Khởi tạo ROS node
-rospy.init_node('robot_position_map_node', anonymous=True)
+OUTPUT_IMAGE_PATH = "/home/duc/Downloads/App MIR100/static/robot_image.png"
+MAP_IMAGE_PATH = "/home/duc/Downloads/App MIR100/static/map_image.png"
+IMAGE_WIDTH = None
+IMAGE_HEIGHT = None
 
-# Khởi tạo ứng dụng Dash
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-# Biến toàn cục để lưu vị trí và hướng của robot
-robot_position = (0, 0)  # Vị trí robot (x, y)
-robot_orientation = 0  # Góc yaw của robot (radian)
-
-# Layout của ứng dụng
-app.layout = html.Div(
-    [
-        dcc.Graph(id="map-graph", style={"height": "600px", "width": "800px"}),
-        dcc.Interval(id="interval-component", interval=1000, n_intervals=0),  # Cập nhật mỗi giây
-    ],
-    style={"padding": "20px", "background": "#ECF0F1"},
-)
-
-def get_robot_position():
-    """
-    Lấy vị trí và hướng của robot từ TF.
-    """
-    try:
-        tf_listener = tf.TransformListener()
-        (trans, rot) = tf_listener.lookupTransform('/map', '/base_link', rospy.Time(0))
-        return (trans[0], trans[1]), tf.transformations.euler_from_quaternion(rot)[2]
-    except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+def world_to_image(x, y):
+    """Chuyển đổi tọa độ thế giới sang tọa độ ảnh."""
+    global IMAGE_WIDTH, IMAGE_HEIGHT, MAP_ORIGIN_X, MAP_ORIGIN_Y, MAP_RESOLUTION
+    if MAP_ORIGIN_X is None or MAP_ORIGIN_Y is None or MAP_RESOLUTION is None or IMAGE_WIDTH is None or IMAGE_HEIGHT is None:
+        rospy.logwarn("Map information or image dimensions are not initialized.")
         return None, None
 
-def draw_robot(x, y, yaw):
-    """
-    Vẽ robot trên bản đồ sử dụng Plotly.
-    """
-    # Vẽ hình chữ nhật biểu thị thân robot
-    rect_length = 0.6
-    rect_width = 0.4
-    corners = [
-        (x + rect_length / 2 * np.cos(yaw) - rect_width / 2 * np.sin(yaw),
-         y + rect_length / 2 * np.sin(yaw) + rect_width / 2 * np.cos(yaw)),
-        (x + rect_length / 2 * np.cos(yaw) + rect_width / 2 * np.sin(yaw),
-         y + rect_length / 2 * np.sin(yaw) - rect_width / 2 * np.cos(yaw)),
-        (x - rect_length / 2 * np.cos(yaw) + rect_width / 2 * np.sin(yaw),
-         y - rect_length / 2 * np.sin(yaw) - rect_width / 2 * np.cos(yaw)),
-        (x - rect_length / 2 * np.cos(yaw) - rect_width / 2 * np.sin(yaw),
-         y - rect_length / 2 * np.sin(yaw) + rect_width / 2 * np.cos(yaw))
-    ]
+    px = int((x - MAP_ORIGIN_X) / MAP_RESOLUTION)
+    py = int((y - MAP_ORIGIN_Y) / MAP_RESOLUTION)
+    py = IMAGE_HEIGHT - py  # Lật hệ tọa độ
+    rospy.loginfo(f"World to Image: World X:{x}, World Y:{y}, Image X:{px}, Image Y:{py}, OriginX:{MAP_ORIGIN_X}, OriginY:{MAP_ORIGIN_Y}, Resolution:{MAP_RESOLUTION}")
+    return px, py
 
-    # Vẽ hình tam giác biểu thị hướng robot
-    tri_side = 0.3
-    triangle_points = [
-        (x + tri_side * np.cos(yaw), y + tri_side * np.sin(yaw)),
-        (x - tri_side / 2 * np.cos(yaw) + (tri_side * np.sqrt(3) / 2) * np.sin(yaw),
-         y - tri_side / 2 * np.sin(yaw) - (tri_side * np.sqrt(3) / 2) * np.cos(yaw)),
-        (x - tri_side / 2 * np.cos(yaw) - (tri_side * np.sqrt(3) / 2) * np.sin(yaw),
-         y - tri_side / 2 * np.sin(yaw) + (tri_side * np.sqrt(3) / 2) * np.cos(yaw))
-    ]
 
-    # Tạo figure với Plotly
-    fig = go.Figure()
+def pose_callback(msg, tf_listener):
+    global IMAGE_WIDTH, IMAGE_HEIGHT
+    try:
+        if IMAGE_WIDTH is None or IMAGE_HEIGHT is None:
+            rospy.logwarn("Map info not yet received. Skipping pose update.")
+            return
+        img = Image.new("RGBA", (IMAGE_WIDTH, IMAGE_HEIGHT), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        (trans, rot) = tf_listener.lookupTransform('/map', '/base_link', rospy.Time(0))
+        x, y = trans[0], trans[1]
+        _, _, yaw = tf.transformations.euler_from_quaternion(rot)
+        px, py = world_to_image(x, y)
+        rect_length = 0.8  
+        rect_width = 0.6   
+        tri_side = 0.3    
+        corners_world = [
+            (x + rect_length / 2 * math.cos(yaw) - rect_width / 2 * math.sin(yaw),
+             y + rect_length / 2 * math.sin(yaw) + rect_width / 2 * math.cos(yaw)),
+            (x + rect_length / 2 * math.cos(yaw) + rect_width / 2 * math.sin(yaw),
+             y + rect_length / 2 * math.sin(yaw) - rect_width / 2 * math.cos(yaw)),
+            (x - rect_length / 2 * math.cos(yaw) + rect_width / 2 * math.sin(yaw),
+             y - rect_length / 2 * math.sin(yaw) - rect_width / 2 * math.cos(yaw)),
+            (x - rect_length / 2 * math.cos(yaw) - rect_width / 2 * math.sin(yaw),
+             y - rect_length / 2 * math.sin(yaw) + rect_width / 2 * math.cos(yaw))
+        ]
+        corners_image = [world_to_image(corner[0], corner[1]) for corner in corners_world]
+        draw.polygon(corners_image, fill=(128, 128, 128, 102)) 
 
-    # Thêm hình chữ nhật
-    fig.add_trace(go.Scatter(
-        x=[corner[0] for corner in corners],
-        y=[corner[1] for corner in corners],
-        fill="toself",
-        fillcolor="rgba(255, 0, 0, 0.4)",
-        line=dict(color="rgba(255, 0, 0, 1)"),
-        name="Robot Body"
-    ))
+        triangle_points_world = [
+            (x + tri_side * math.cos(yaw), y + tri_side * math.sin(yaw)),
+            (x - tri_side / 2 * math.cos(yaw) + (tri_side * math.sqrt(3) / 2) * math.sin(yaw),
+             y - tri_side / 2 * math.sin(yaw) - (tri_side * math.sqrt(3) / 2) * math.cos(yaw)),
+            (x - tri_side / 2 * math.cos(yaw) - (tri_side * math.sqrt(3) / 2) * math.sin(yaw),
+             y - tri_side / 2 * math.sin(yaw) + (tri_side * math.sqrt(3) / 2) * math.cos(yaw))
+        ]
+        triangle_points_image = [world_to_image(point[0], point[1]) for point in triangle_points_world]
+        draw.polygon(triangle_points_image, fill=(0, 0, 255, 178))  
+        img.save(OUTPUT_IMAGE_PATH)
+        rospy.loginfo(f"Robot location image updated: {OUTPUT_IMAGE_PATH}")
 
-    # Thêm hình tam giác
-    fig.add_trace(go.Scatter(
-        x=[point[0] for point in triangle_points],
-        y=[point[1] for point in triangle_points],
-        fill="toself",
-        fillcolor="rgba(0, 0, 255, 0.7)",
-        line=dict(color="rgba(0, 0, 255, 1)"),
-        name="Robot Direction"
-    ))
+    except Exception as e:
+        rospy.logerr(f"There was an error in displaying path or transformation to img {e}")
 
-    # Cập nhật layout
-    fig.update_layout(
-        xaxis=dict(range=[x - 5, x + 5]),  # Giới hạn trục x
-        yaxis=dict(range=[y - 5, y + 5]),  # Giới hạn trục y
-        showlegend=False,
-        margin=dict(l=0, r=0, t=0, b=0),
-    )
+def map_info_callback(map_data):
+    """Callback function xử lý thông tin bản đồ."""
+    global MAP_ORIGIN_X, MAP_ORIGIN_Y, MAP_RESOLUTION, IMAGE_WIDTH, IMAGE_HEIGHT
 
-    return fig
+    MAP_ORIGIN_X = map_data.info.origin.position.x
+    MAP_ORIGIN_Y = map_data.info.origin.position.y
+    MAP_RESOLUTION = map_data.info.resolution
+    IMAGE_WIDTH = map_data.info.width
+    IMAGE_HEIGHT = map_data.info.height
 
-# Callback để cập nhật vị trí robot và vẽ lên bản đồ
-@app.callback(
-    Output("map-graph", "figure"),
-    Input("interval-component", "n_intervals")
-)
-def update_map(n):
-    global robot_position, robot_orientation
+    rospy.loginfo("Received map info")
 
-    # Lấy vị trí và hướng của robot từ TF
-    position, orientation = get_robot_position()
-    if position and orientation:
-        robot_position = position
-        robot_orientation = orientation
+    try:
+        img = Image.open(MAP_IMAGE_PATH)
+        img.close()
 
-    # Vẽ robot trên bản đồ
-    return draw_robot(robot_position[0], robot_position[1], robot_orientation)
+    except Exception as e:
+        rospy.logerr(f"validate image loading on /map exception, potential IO with source{e}")
 
-if __name__ == "__main__":
-    app.run_server(debug=True)
+def listener():
+    rospy.init_node('robot_location_to_image', anonymous=True)
+    tf_listener = tf.TransformListener()
+    rospy.Subscriber("/map", OccupancyGrid, map_info_callback)
+    rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback, tf_listener)
+    while not rospy.is_shutdown():
+        rospy.sleep(0)
+
+if __name__ == '__main__':
+    try:
+        listener()
+    except rospy.ROSInterruptException:
+        pass
+    except Exception as e:
+        print(e)
