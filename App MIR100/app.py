@@ -1,6 +1,6 @@
 # app.py
 import dash
-from dash import dcc, html, Input, Output, State
+from dash import dcc, html, Input, Output, State, callback, callback_context, no_update
 import dash_bootstrap_components as dbc
 import dash_daq as daq
 from components import LoginPage, ChangePasswordPage, Sidebar, StatusBar, MapSection
@@ -9,7 +9,8 @@ import time
 import random
 import rospy
 from components.draw_mode import create_draw_mode_layout
-from function_draw_mode.draw_line_callback import *  # Import các callback từ draw_line_callback.py
+import plotly.graph_objects as go
+from draw_mode_callbacks import *  # Import the callbacks
 
 # Khởi tạo ứng dụng Dash
 app = dash.Dash(
@@ -19,7 +20,7 @@ app = dash.Dash(
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
     ],
     suppress_callback_exceptions=True,
-    external_scripts=["assets/script.js"]  # Thêm script bên ngoài nếu cần
+    external_scripts=["assets/script.js"]
 )
 
 # Khởi tạo các component
@@ -32,8 +33,8 @@ map_section = MapSection()
 # Định nghĩa layout chính của ứng dụng
 app.layout = html.Div(
     [
-        dcc.Location(id='url', refresh=False),  # Theo dõi URL
-        html.Div(id="app-container", children=[login_page.layout])  # Container chính
+        dcc.Location(id='url', refresh=False),
+        html.Div(id="app-container", children=[login_page.layout])
     ]
 )
 
@@ -66,16 +67,16 @@ def login(n_clicks, username, password):
 )
 def display_page(pathname):
     if pathname == '/draw-mode':
-        return create_draw_mode_layout()  # Trang vẽ
+        return create_draw_mode_layout()
     elif pathname == '/maps':
-        return map_section.create_map_section()  # Trang bản đồ
+        return map_section.create_map_section()
     elif pathname == '/change-password':
-        return change_password_page.layout  # Trang đổi mật khẩu
+        return change_password_page.layout
     else:
         return html.Div([
             status_bar.create_status_bar(),
             map_section.create_map_section()
-        ])  # Trang mặc định (bản đồ)
+        ])
 
 # Callback cập nhật mật khẩu
 @app.callback(
@@ -88,7 +89,7 @@ def display_page(pathname):
 def update_password_callback(n_clicks, new_password, confirm_password):
     if new_password == confirm_password:
         global user_credentials
-        username = list(user_credentials.keys())[0]  # Lấy username (ví dụ: "admin")
+        username = list(user_credentials.keys())[0]
         if update_password(username, new_password):
             return html.Div("Password updated successfully!", style={"color": "green"})
         else:
@@ -192,7 +193,7 @@ def update_graph_figure(n):
 def update_lidar_images(n):
     timestamp = int(time.time())
     return (
-        f"/static/b_scan_image.png?{timestamp}",
+        f"/static/_scan_image.png?{timestamp}",
         f"/static/b_scan_image.png?{timestamp}"
     )
 

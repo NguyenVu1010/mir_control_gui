@@ -83,8 +83,8 @@ def create_draw_mode_layout():
 
     # Tạo layout cho bản đồ
     map_layout = go.Layout(
-        xaxis=dict(showgrid=False, range=[0, 1000]),
-        yaxis=dict(showgrid=False, range=[0, 1000], scaleanchor="x", scaleratio=1),
+        xaxis=dict(showgrid=False, range=[0, 1000], fixedrange=False), # set fixedrange to false
+        yaxis=dict(showgrid=False, range=[0, 1000], scaleanchor="x", scaleratio=1, fixedrange=False), # set fixedrange to false
         plot_bgcolor="white",
         margin=dict(l=0, r=0, t=0, b=0),
         images=[map_image],  # Thêm hình ảnh bản đồ vào layout
@@ -115,13 +115,13 @@ def create_draw_mode_layout():
                 className="mb-3",
             ),
             dcc.Store(id='draw-line-mode', data=False),  # Store for draw line mode
-            dcc.Store(id='line-coordinates', data=[]),  # Store for storing line coordinates
+            dcc.Store(id='line-coordinates', data={}),  # Store for storing line coordinates, initialize as empty dict
             dcc.Store(id='draw-method', data=''),  # Store drawing method: 'manual' or 'coordinate'
             dcc.Graph(
                 id="map-image-draw-mode",
                 figure=map_figure,
                 style={"width": "100%", "height": "600px", "border": "2px solid #34495E"},
-                config={"scrollZoom": True},  # Cho phép zoom bằng scroll
+                config={"scrollZoom": True, 'modeBarButtonsToRemove': ['select2d', 'lasso2d']},  # Cho phép zoom bằng scroll, remove select2d and lasso2d
             ),
             html.P("The map is ready for your work.", className="text-info mt-2"),
             html.Div(id='draw-mode-output'),  # Output after drawing
