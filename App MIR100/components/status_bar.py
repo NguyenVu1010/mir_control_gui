@@ -13,6 +13,8 @@ class StatusBar:
                                 html.Span("No missions in queue", className="badge bg-warning text-dark me-2"),
                                 html.Span("PAUSED", className="badge bg-danger me-2"),
                                 html.Span("ALL OK", className="badge bg-success me-2"),
+                                html.Span(id="linear-speed-display", className="badge bg-info text-dark me-2", children="Linear Speed: 0.5"),
+                                html.Span(id="angular-speed-display", className="badge bg-info text-dark me-2", children="Angular Speed: 0.3"),
                             ],
                             width="auto",
                         ),
@@ -24,18 +26,29 @@ class StatusBar:
                                 clearable=False,
                             ),
                             width="auto",
-                            className="me-2"  # Add spacing before the joystick button
+                            className="me-2"
+                        ),
+                         dbc.Col(
+                            [
+                                html.Div("Linear Speed:", style={"marginRight": "5px", "color": "white"}), # Add label for input long speed.
+                                dbc.Input(id="linear-speed-input", type="number", placeholder="Linear Speed", value=0.5, step=0.1, style={"width": "100px", "marginRight": "10px"}),
+                                html.Div("Angular Speed:", style={"marginLeft": "10px","marginRight": "5px", "color": "white"}),#Add label for input angular speed.
+                                dbc.Input(id="angular-speed-input", type="number", placeholder="Angular Speed", value=0.3, step=0.1, style={"width": "100px"}),
+                            ],
+                            width="auto",
+                            className="me-2",
+                            style={"display": "flex", "alignItems": "center"}
                         ),
                         dbc.Col(
-                            dbc.Button("Open Joystick", id="open-joystick-btn", color="primary", size="sm"),
+                            dbc.Button("Open Teleoperation", id="open-joystick-btn", color="primary", size="sm"),
                             width="auto",
-                            className="text-end",  # Right align the button
+                            className="text-end",
                         ),
-                        html.Div(id="joystick-popup-container"),  # Container for Joystick popup
+
                     ],
-                    align="center",  # Align items vertically
-                    className="g-0",  # Remove default gaps between columns
-                    style={"width": "100%"}, # Ensure the row takes up full width
+                    align="center",
+                    className="g-0",
+                    style={"width": "100%"},
                 )
             ],
             style={

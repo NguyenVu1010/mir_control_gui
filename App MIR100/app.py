@@ -1,18 +1,20 @@
 # app.py
 import dash
-from dash import dcc, html, Input, Output, State, callback, callback_context, no_update
+from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
-import dash_daq as daq
 from components import LoginPage, ChangePasswordPage, Sidebar, StatusBar, MapSection
 from utils.data import authenticate, user_credentials, update_password
 import time
-import random
 import rospy
+from geometry_msgs.msg import Twist
 from components.draw_mode import create_draw_mode_layout
 import plotly.graph_objects as go
-from draw_mode_callbacks import *  # Import the callbacks
+from function_draw_mode.draw_line_mode_callbacks import *
+from function_teleop_control.teleop_control import TeleopControl
+import random
+from dash import callback_context
+from components.rviz_section import create_rviz_section
 
-# Khởi tạo ứng dụng Dash
 app = dash.Dash(
     __name__,
     external_stylesheets=[
@@ -23,22 +25,48 @@ app = dash.Dash(
     external_scripts=["assets/script.js"]
 )
 
-# Khởi tạo các component
+if not rospy.core.is_initialized():
+    try:
+        rospy.init_node('dash_app', anonymous=True)
+        print("ROS node 'dash_app' initialized successfully.")
+    except rospy.exceptions.ROSException as e:
+        print(f"Error initializing ROS node: {e}")
+
+if rospy.core.is_initialized():
+    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+else:
+    pub = None
+    print("ROS not properly initialized, publisher not created.")
+
+linear_speed = 0.5
+angular_speed = 0.3
+
+if pub:
+    joystick_control = TeleopControl(pub, linear_speed, angular_speed)
+else:
+    class DummyTeleopControl:
+        def __init__(self):
+            pass
+        def create_joystick_popup(self):
+            return html.Div("ROS not available, TeleopControl is disabled.")
+
+    joystick_control = DummyTeleopControl()
+
+
 login_page = LoginPage()
 change_password_page = ChangePasswordPage()
 sidebar = Sidebar()
 status_bar = StatusBar()
 map_section = MapSection()
 
-# Định nghĩa layout chính của ứng dụng
 app.layout = html.Div(
     [
         dcc.Location(id='url', refresh=False),
-        html.Div(id="app-container", children=[login_page.layout])
+        html.Div(id="app-container", children=[login_page.layout]),
+        html.Div(id="joystick-output", style={"margin": "20px", "fontSize": "0px"}),
     ]
 )
 
-# Callback xử lý đăng nhập
 @app.callback(
     Output("app-container", "children"),
     Input("login-button", "n_clicks"),
@@ -60,7 +88,6 @@ def login(n_clicks, username, password):
     else:
         return html.Div([login_page.layout, html.Div("Login Failed", style={"color": "red"})])
 
-# Callback cập nhật nội dung trang dựa trên URL
 @app.callback(
     Output('page-content', 'children'),
     Input('url', 'pathname')
@@ -72,13 +99,23 @@ def display_page(pathname):
         return map_section.create_map_section()
     elif pathname == '/change-password':
         return change_password_page.layout
+    elif pathname == '/rviz': 
+        return create_rviz_section()
     else:
-        return html.Div([
-            status_bar.create_status_bar(),
-            map_section.create_map_section()
-        ])
+        return html.Div(
+            [
+                status_bar.create_status_bar(),
+                map_section.create_map_section(),
+                html.Div(id="joystick-popup-container"),
+                html.Div(id="joystick-output", style={"margin": "20px", "fontSize": "0px"}),
+                dcc.Interval(
+                    id='interval-component',
+                    interval=1*1000,
+                    n_intervals=0
+                )
+            ]
+        )
 
-# Callback cập nhật mật khẩu
 @app.callback(
     Output("password-status", "children"),
     Input("update-password-button", "n_clicks"),
@@ -97,30 +134,14 @@ def update_password_callback(n_clicks, new_password, confirm_password):
     else:
         return html.Div("Passwords do not match.", style={"color": "red"})
 
-# Callback hiển thị popup joystick
 @app.callback(
     Output("joystick-popup-container", "children"),
     Input("open-joystick-btn", "n_clicks"),
     prevent_initial_call=True,
 )
 def open_joystick(n_clicks):
-    return dbc.Modal(
-        [
-            dbc.ModalHeader(dbc.ModalTitle("Joystick Control")),
-            dbc.ModalBody(
-                daq.Joystick(id="joystick", label="Joystick", angle=0, force=0, size=150)
-            ),
-            dbc.ModalFooter(
-                dbc.Button("Close", id="close-joystick-btn", className="ms-auto", n_clicks=0)
-            ),
-        ],
-        id="joystick-modal",
-        is_open=True,
-        centered=True,
-        size="lg",
-    )
+    return joystick_control.create_joystick_popup()
 
-# Callback đóng popup joystick
 @app.callback(
     Output("joystick-modal", "is_open"),
     Input("close-joystick-btn", "n_clicks"),
@@ -130,16 +151,85 @@ def open_joystick(n_clicks):
 def close_joystick(n_clicks, is_open):
     return not is_open
 
-# Callback thay đổi ngôn ngữ
+@app.callback(
+    [Output("linear-speed-display", "children"),
+     Output("angular-speed-display", "children")],
+    [Input("linear-speed-input", "value"),
+     Input("angular-speed-input", "value")],
+    prevent_initial_call=True
+)
+def update_speed(linear_speed_value, angular_speed_value):
+    global joystick_control
+
+    linear_speed = linear_speed_value
+    angular_speed = angular_speed_value
+
+    joystick_control.linear_speed = linear_speed
+    joystick_control.angular_speed = angular_speed
+
+    speed_message = "Giá trị tốc độ đã được cập nhật"
+
+    return (
+        f"Linear Speed: {linear_speed_value}",
+        f"Angular Speed: {angular_speed_value}",
+    )
+
+@app.callback(
+    Output("joystick-output", "children"),
+    [Input("forward-button", "n_clicks_timestamp"),
+     Input("backward-button", "n_clicks_timestamp"),
+     Input("left-button", "n_clicks_timestamp"),
+     Input("right-button", "n_clicks_timestamp"),
+     Input("forward-left-button", "n_clicks_timestamp"),
+     Input("forward-right-button", "n_clicks_timestamp"),
+     Input("back-left-button", "n_clicks_timestamp"),
+     Input("back-right-button", "n_clicks_timestamp"),
+     Input("stop-button", "n_clicks")],
+    prevent_initial_call=True
+)
+def teleop_control(f, b, l, r, fl, fr, bl, br, s):
+    ctx = callback_context
+    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
+
+    if triggered_id == "forward-button":
+        joystick_control.move_forward()
+        return "Moving Forward"
+    elif triggered_id == "backward-button":
+        joystick_control.move_backward()
+        return "Moving Backward"
+    elif triggered_id == "left-button":
+        joystick_control.turn_left()
+        return "Turning Left"
+    elif triggered_id == "right-button":
+        joystick_control.turn_right()
+        return "Turning Right"
+    elif triggered_id == "forward-left-button":
+        joystick_control.move_forward_left()
+        return "Moving Forward Left"
+    elif triggered_id == "forward-right-button":
+        joystick_control.move_forward_right()
+        return "Moving Forward Right"
+    elif triggered_id == "back-left-button":
+        joystick_control.move_backward_left()
+        return "Moving Backward Left"
+    elif triggered_id == "back-right-button":
+        joystick_control.move_backward_right()
+        return "Moving Backward Right"
+    elif triggered_id == "stop-button":
+        joystick_control.stop()
+        return "Stop"
+    else:
+        return "No movement"
+
 @app.callback(
     Output('map_section', 'children'),
     Input('language-dropdown', 'value')
 )
 def change_language(language):
     translations = {
-        'en': {'title': 'Main Floor', 'map': 'Edit and draw the map', 'ready': 'The map is ready for your work.'},
-        'vi': {'title': 'Tầng Chính', 'map': 'Chỉnh sửa và vẽ bản đồ', 'ready': 'Bản đồ đã sẵn sàng để làm việc.'},
-        'es': {'title': 'Piso Principal', 'map': 'Edita y dibuja el mapa', 'ready': 'El mapa está listo para tu trabajo.'},
+        'en': {'title': 'Main Floor', 'map': 'Edit and draw the map', 'ready': 'El mapa está listo para tu trabajo.'},
+        'vi': {'title': 'Tầng Chính', 'map': 'Edit and draw the map', 'ready': 'El mapa está listo para tu trabajo.'},
+        'es': {'title': 'Piso Principal', 'map': 'Edit and draw the map', 'ready': 'El mapa está listo para tu trabajo.'},
     }
     translation = translations.get(language, translations['en'])
     return html.Div(
@@ -159,7 +249,6 @@ def change_language(language):
         },
     )
 
-# Callback cập nhật hình ảnh bản đồ
 @app.callback(
     Output("map-image", "src"),
     Input("interval-component", "n_intervals")
@@ -168,7 +257,6 @@ def update_map_image(n):
     timestamp = int(time.time())
     return f"/static/map_image.png?{timestamp}"
 
-# Callback cập nhật hình ảnh lidar
 @app.callback(
     Output("lidar-image", "src"),
     Input("interval-component", "n_intervals")
@@ -177,15 +265,6 @@ def update_lidar_image(n):
     timestamp = int(time.time())
     return f"/static/lidar_image.png?{timestamp}"
 
-# Callback cập nhật đồ thị bản đồ
-@app.callback(
-    Output("map-graph", "figure"),
-    Input(component_id='interval-component', component_property='n_intervals')
-)
-def update_graph_figure(n):
-    return map_section.create_figure()
-
-# Callback cập nhật hình ảnh lidar (trước và sau)
 @app.callback(
     [Output("lidar-f-image", "src"), Output("lidar-b-image", "src")],
     Input("interval-component", "n_intervals")
@@ -193,11 +272,10 @@ def update_graph_figure(n):
 def update_lidar_images(n):
     timestamp = int(time.time())
     return (
-        f"/static/_scan_image.png?{timestamp}",
+        f"/static/f_scan_image.png?{timestamp}",
         f"/static/b_scan_image.png?{timestamp}"
     )
 
-# Callback cập nhật hình ảnh đường đi
 @app.callback(
     [Output("path-image", "src")],
     Input("interval-component", "n_intervals")
@@ -208,7 +286,6 @@ def update_path_image(n):
         f"/static/path_image.png?random={random_value}",
     )
 
-# Callback cập nhật hình ảnh bản đồ trong chế độ vẽ
 @app.callback(
     Output("map-image-draw-mode", "src"),
     Input("interval-component", "n_intervals")
@@ -217,7 +294,41 @@ def update_map_image_draw_mode(n):
     timestamp = int(time.time())
     return f"/static/map_image.png?{timestamp}"
 
-# Chạy ứng dụng
+@app.callback(
+    Output("sidebar-nav", "children"),
+    Input('url', 'pathname'),
+    prevent_initial_call=True
+)
+def update_active_link(pathname):
+    nav_links = [
+        {"href": "/", "id": "index-link", "label": "Home"},
+        {"href": "/draw-mode", "id": "draw-mode-link", "label": "Draw Mode"},
+        {"href": "/rviz", "id": "rviz-link", "label": "RViz"},
+        {"href": "#", "id": "sounds-link", "label": "Sounds"},
+        {"href": "#", "id": "transitions-link", "label": "Transitions"},
+        {"href": "#", "id": "io-modules-link", "label": "I/O Modules"},
+        {"href": "#", "id": "users-link", "label": "Users"},
+        {"href": "#", "id": "user-groups-link", "label": "User Groups"},
+        {"href": "#", "id": "paths-link", "label": "Paths"},
+        {"href": "#", "id": "path-guides-link", "label": "Path Guides"},
+        {"href": "#", "id": "marker-types-link", "label": "Marker Types"},
+        {"href": "#", "id": "footprints-link", "label": "Footprints"},
+        {"href": "/change-password", "id": "change-password-link", "label": "Change Password"},
+    ]
+
+    updated_links = []
+    for link in nav_links:
+        active = pathname == link["href"]
+        updated_links.append(
+            dbc.NavLink(
+                link["label"],
+                href=link["href"],
+                id=link["id"],
+                className="text-white",
+                active=active  
+            )
+        )
+    return updated_links
+
 if __name__ == "__main__":
-    rospy.init_node('dash_app', anonymous=True)
     app.run_server(debug=True)

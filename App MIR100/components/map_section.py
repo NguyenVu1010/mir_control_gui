@@ -5,7 +5,7 @@ class MapSection:
     def create_map_section(self):
         return html.Div(
             [
-                html.H3("Main Floor", className="mb-3", style={"color": "#2C3E50"}),
+                html.H3("HOME", className="mb-3", style={"color": "#2C3E50"}),
                 html.P("Edit and draw the map", className="text-muted"),
                 # Container for map and lidar images
                 html.Div(
