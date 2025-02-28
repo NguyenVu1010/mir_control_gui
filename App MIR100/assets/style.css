@@ -1,0 +1,6 @@
+/* assets/styles.css */
+.map-graph .annotation-arrow {
+    stroke: red;
+    stroke-width: 2;
+    fill: red;
+}
