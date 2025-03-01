@@ -61,45 +61,37 @@ def create_lidar_image(points):
     if not points:
         return img
 
-    all_x = [p[0] for p in points]
-    all_y = [p[1] for p in points]
-
-    min_x = min(all_x)
-    max_x = max(all_x)
-    min_y = min(all_y)
-    max_y = max(all_y)
-
-    width = max_x - min_x
-    height = max_y - min_y
-
-    if width == 0 or height == 0:
-        return img
-
-    # Calculate a scaling factor that considers the map image size
-    max_dimension = max(width, height)  
-    scale = min(IMAGE_WIDTH, IMAGE_HEIGHT) / max_dimension * MANUAL_SCALE_FACTOR 
-
-    # Center the points within the image.
-    offset_x = (IMAGE_WIDTH / scale - width) / 2
-    offset_y = (IMAGE_HEIGHT / scale - height) / 2
+    # Map metadata (replace these with actual values from your map's YAML file)
+    map_resolution = 0.05000000074505806  # meters per pixel
+    map_origin_x = 0   # x-coordinate of the map's origin in meters
+    map_origin_y = 0   # y-coordinate of the map's origin in meters
 
     for point_x, point_y in points:
-        px = int((point_x - min_x + offset_x) * scale)
-        py = int(IMAGE_HEIGHT - (point_y - min_y + offset_y) * scale)
+        # Convert from meters to pixels
+        px = int((point_x - map_origin_x) / map_resolution)
+        py = int(IMAGE_HEIGHT - (point_y - map_origin_y) / map_resolution)
+
+        # Draw the point
         draw.ellipse((px - POINT_SIZE, py - POINT_SIZE, px + POINT_SIZE, py + POINT_SIZE), fill=(255, 0, 0))
+
     return img
 
 def scan_callback(msg, tf_listener, topic_name):
     try:
-        points = process_lidar_data(msg, tf_listener, is_back=(topic_name == "/b_scan"))
-        img_output = create_lidar_image(points)
-        output_path = f"/home/duc/Downloads/App MIR100/static/{topic_name.split('/')[-1]}_image.png"
-        img_output.save(output_path)
-        rospy.loginfo(f"Lidar image for {topic_name} created and saved to {output_path}")
+        if topic_name == "/f_scan":
+            points_f = process_lidar_data(msg, tf_listener, is_back=False)
+            img_f = create_lidar_image(points_f)
+            img_f.save(f"/home/duc/Downloads/App MIR100/static/f_scan_image.png")
+            rospy.loginfo("Lidar image for /f_scan created")
+
+        elif topic_name == "/b_scan":
+            points_b = process_lidar_data(msg, tf_listener, is_back=True)
+            img_b = create_lidar_image(points_b)
+            img_b.save(f"/home/duc/Downloads/App MIR100/static/b_scan_image.png")
+            rospy.loginfo("Lidar image for /b_scan created")
 
     except Exception as e:
         rospy.logerr(f"Error processing {topic_name} data: {e}")
-
 def listener():
     rospy.init_node('lidar_to_image', anonymous=True)
     tf_listener = tf.TransformListener()

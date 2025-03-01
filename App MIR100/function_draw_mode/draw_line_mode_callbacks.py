@@ -75,7 +75,7 @@ def draw_line_coordinate(n_clicks, start_x, start_y, end_x, end_y, figure):
             x=[start_x, end_x],
             y=[start_y, end_y],
             mode="lines",
-            line=dict(color="blue", width=2),
+            line=dict(color="black", width=4),
             showlegend=False,
         )
     )
@@ -89,10 +89,6 @@ def draw_line_coordinate(n_clicks, start_x, start_y, end_x, end_y, figure):
     prevent_initial_call=True,
 )
 def store_start_point(clickData, draw_method):
-    print("store_start_point called")  # Add this line
-    print("draw_method:", draw_method)  # Add this line
-    print("clickData:", clickData) # Add this line
-
     if draw_method == "manual" and clickData:
         x = clickData["points"][0]["x"]
         y = clickData["points"][0]["y"]
@@ -109,11 +105,6 @@ def store_start_point(clickData, draw_method):
     prevent_initial_call=True,
 )
 def draw_line_on_release(relayoutData,draw_method, line_coordinates, figure):
-    print("draw_line_on_release called")
-    print("draw_method:", draw_method)
-    print("relayoutData:", json.dumps(relayoutData))  # Print relayoutData
-    print("line_coordinates:", line_coordinates) # Add this line
-
     if draw_method == "manual" and relayoutData and line_coordinates and "start_x" in line_coordinates:
         # Check if relayoutData is due to a drag/release (mouse up)
         if 'xaxis.range[0]' in relayoutData and 'yaxis.range[0]' in relayoutData and 'xaxis.range[1]' in relayoutData and 'yaxis.range[1]' in relayoutData:
@@ -131,7 +122,7 @@ def draw_line_on_release(relayoutData,draw_method, line_coordinates, figure):
                     x=[start_x, end_x],
                     y=[start_y, end_y],
                     mode="lines",
-                    line=dict(color="red", width=2),
+                    line=dict(color="blue", width=2),
                     showlegend=False,
                 )
             )

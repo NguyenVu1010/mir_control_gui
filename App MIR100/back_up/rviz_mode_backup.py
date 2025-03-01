@@ -10,6 +10,8 @@ import plotly.express as px
 import dash
 import io
 import base64
+import json
+import os
 
 class RVizSection:
     FIXED_ARROW_LENGTH = 30
@@ -26,7 +28,7 @@ class RVizSection:
     def load_image_as_numpy(self, image_path):
         try:
             img = Image.open(image_path).convert('L')
-            map_data = np.array(img)  
+            map_data = np.array(img)
             if len(map_data.shape) > 2:
                 print("WARNING: Image has more than two dimensions, potential color issue")
             return map_data
@@ -40,14 +42,14 @@ class RVizSection:
 
     def create_composite_image(self):
         try:
-            map_img = Image.open("/home/duc/Downloads/App MIR100/static/map_image.png") 
+            map_img = Image.open("/home/duc/Downloads/App MIR100/static/map_image.png")
             if map_img.mode != 'RGBA':
                 map_img = map_img.convert('RGBA')
 
             lidar_f_img = Image.open("/home/duc/Downloads/App MIR100/static/f_scan_image.png").convert("RGBA")
             lidar_b_img = Image.open("/home/duc/Downloads/App MIR100/static/b_scan_image.png").convert("RGBA")
             robot_img = Image.open("/home/duc/Downloads/App MIR100/static/robot_image.png").convert("RGBA")
-            path_img = Image.open("/home/duc/Downloads/App MIR100/static/path_image.png").convert("RGBA")  
+            path_img = Image.open("/home/duc/Downloads/App MIR100/static/path_image.png").convert("RGBA")
         except FileNotFoundError as e:
             print(f"Error loading images: {e}")
             return None
@@ -76,31 +78,41 @@ class RVizSection:
             img_byte_arr = img_byte_arr.getvalue()
             encoded_image = base64.b64encode(img_byte_arr).decode()
             img_data = f'data:image/png;base64,{encoded_image}'
-            fig = px.imshow(Image.open(io.BytesIO(base64.b64decode(encoded_image))))  # Remove binary_string=True
+            fig = px.imshow(Image.open(io.BytesIO(base64.b64decode(encoded_image))),binary_string=True)
             fig.update_layout(
+
                 images=[dict(
-                    source=img_data,
-                    xref="x", yref="y",
-                    x=0, y=composite_img.size[1],
-                    sizex=composite_img.size[0], sizey=composite_img.size[1],
-                    sizing="stretch",
-                    opacity=1,
-                    layer="below")],
+                source=img_data,
+
+                xref="x", yref="y",
+                x=0, y=composite_img.size[1],
+                sizex=composite_img.size[0], sizey=composite_img.size[1],
+
+                sizing="stretch",
+
+                opacity=1,
+
+                layer="below")],
                 plot_bgcolor='rgba(255,255,255,0)',
                 paper_bgcolor='rgba(255,255,255,0)'
             )
 
+
         dragmode = "drawline" if drawing_enabled else False
         fig.update_layout(
-            dragmode=dragmode,
-            xaxis=dict(showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(showgrid=False, zeroline=False, visible=False, scaleratio=1),
-            margin=dict(l=0, r=0, b=0, t=0),
-            height=600,
-            width=800,
-            newshape_line_color='red',
+                dragmode=dragmode,
+                xaxis=dict(showgrid=False, zeroline=False, visible=False),
+
+                yaxis=dict(showgrid=False, zeroline=False, visible=False,scaleratio=1),
+                margin=dict(l=0, r=0, b=0, t=0),
+
+                height=600,
+                width=800,
+                newshape_line_color='red',
+
+
             coloraxis_showscale=False
-        )
+            )
         fig.update_traces(
             hovertemplate=None,
             hoverinfo='skip'
@@ -118,6 +130,7 @@ class RVizSection:
                 arrowhead=2, arrowcolor='red', arrowwidth=2,
             )
 
+
         return fig
 
     def publish_goal(self, x, y, angle):
@@ -131,7 +144,7 @@ class RVizSection:
                 pose.pose.orientation.z = math.sin(angle / 2)
                 pose.pose.orientation.w = math.cos(angle / 2)
                 self.goal_pub.publish(pose)
-                return "Goal published successfully!"
+                return "Goal published successfully! (x: {}, y: {}, angle: {})".format(x, y, angle)
             except Exception as e:
                 return f"Error publishing goal: {e}"
         return "Goal publisher not initialized."
@@ -188,6 +201,7 @@ def create_rviz_section():
                 ],
                 style={"position": "relative", "width": "800px", "height": "600px"},
             ),
+
 
             html.P("Draw line and after release, it sends the goal", className="text-info mt-2"),
             html.Div(id="goal-status"),
@@ -257,6 +271,15 @@ def create_rviz_section():
     )
     return layout
 
+def load_map_info():
+    map_info_path = "/home/duc/Downloads/App MIR100/static/map_image.json"
+    if os.path.exists(map_info_path):
+        with open(map_info_path, "r") as f:
+            return json.load(f)
+    else:
+        print("WARNING: map_info.json not found. Using default values or disabling auto-goal sending.")
+        return None # Modified return
+
 # Callbacks
 @callback(
     Output("goal-modal", "is_open"),
@@ -289,7 +312,7 @@ def toggle_modal(n1, n2, n3, is_open):
 def send_goal_coordinates(n_clicks, x, y, z, w):
     if n_clicks:
         rviz_section = RVizSection()
-        angle = math.atan2(float(y), float(x)) 
+        angle = math.atan2(float(y), float(x))
         status = rviz_section.publish_goal(x, y, angle)
         return status
     return no_update
@@ -333,31 +356,21 @@ def update_map(clickData, relayoutData, n_intervals, existing_map, drag_start_co
 def store_drag_start_coords(clickData, drawing_enabled):
     if clickData and drawing_enabled:
         return {"start_x": clickData['points'][0]['x'], "start_y": clickData['points'][0]['y']}
-    return None
+    return no_update
 
 @callback(
     [Output("drawing-enabled", "data"), Output("nav-goal-btn", "className")],
-    [Input("nav-goal-btn", "n_clicks"), Input("map-graph", "relayoutData")],
+    [Input("nav-goal-btn", "n_clicks")],
     [State("drawing-enabled", "data")],
     prevent_initial_call=True
 )
-def toggle_drawing_mode(n_clicks, relayoutData, drawing_enabled):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return drawing_enabled, "btn btn-secondary"
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if trigger_id == "nav-goal-btn":
+def toggle_drawing_mode(n_clicks, drawing_enabled):
+    if n_clicks:
         drawing_enabled = not drawing_enabled
         button_class = "btn btn-success" if drawing_enabled else "btn btn-secondary"
         return drawing_enabled, button_class
-    
-    elif trigger_id == "map-graph" and relayoutData and drawing_enabled:
-        # Tắt chế độ vẽ sau khi vẽ xong 1 đường
-        return False, "btn btn-secondary"
-    
     return drawing_enabled, "btn btn-secondary"
+
 
 @callback(
     Output("goal-status", "children", allow_duplicate=True),
@@ -366,16 +379,34 @@ def toggle_drawing_mode(n_clicks, relayoutData, drawing_enabled):
     prevent_initial_call=True
 )
 def auto_send_goal(relayoutData, drag_start_coords, drawing_enabled):
-    if relayoutData and drag_start_coords and drawing_enabled:
-        start_x = drag_start_coords["start_x"]
-        start_y = drag_start_coords["start_y"]
-        end_x = relayoutData.get("xaxis.range[0]")
-        end_y = relayoutData.get("yaxis.range[1]")
-        dx = end_x - start_x
-        dy = end_y - start_y
-        angle = math.atan2(dy, dx)
-        rviz_section = RVizSection()
-        # print("x: " + str(start_x_world) + " " + "y: " + str(start_y_world))
-        status = rviz_section.publish_goal(start_x, start_y, angle)
-        return status
-    return no_update
+    if not (relayoutData and drawing_enabled):
+        print("Không thỏa mãn điều kiện gửi goal")
+        return no_update
+
+    map_info = load_map_info()
+
+    if not map_info:
+        print("Không thể tải thông tin bản đồ từ map_info.json. Không tự động gửi goal.")
+        return "Không thể gửi goal tự động do thiếu thông tin bản đồ."
+
+    if "shapes" not in relayoutData or not relayoutData["shapes"]:
+        print("relayoutData không có shapes hợp lệ!")
+        return no_update
+
+    shape = relayoutData["shapes"][0]
+    x_pixel_start, y_pixel_start = shape["x0"], shape["y0"]
+    x_pixel_end, y_pixel_end = shape["x1"], shape["y1"]
+
+    start_x = map_info["origin_x"] + (x_pixel_start * map_info["resolution"])
+    start_y = map_info["origin_y"] + ((map_info["height"] - y_pixel_start) * map_info["resolution"])
+    end_x = map_info["origin_x"] + (x_pixel_end * map_info["resolution"])
+    end_y = map_info["origin_y"] + ((map_info["height"] - y_pixel_end) * map_info["resolution"])
+
+    dx = end_x - start_x
+    dy = end_y - start_y
+    angle = math.atan2(dy, dx)
+
+    # Gửi tọa độ đến robot qua ROS
+    rviz_section = RVizSection()
+    status = rviz_section.publish_goal(start_x, start_y, angle)
+    return status
