@@ -1,7 +1,7 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 from utils.data import LANGUAGES
-from dash_iconify import DashIconify
+
 class StatusBar:
     def create_status_bar(self):
         return html.Div(
@@ -28,7 +28,7 @@ class StatusBar:
                             width="auto",
                             className="me-2"
                         ),
-                        dbc.Col(
+                         dbc.Col(
                             [
                                 html.Div("Linear Speed:", style={"marginRight": "5px", "color": "white"}), # Add label for input long speed.
                                 dbc.Input(id="linear-speed-input", type="number", placeholder="Linear Speed", value=0.5, step=0.1, style={"width": "100px", "marginRight": "10px"}),
@@ -39,20 +39,10 @@ class StatusBar:
                             className="me-2",
                             style={"display": "flex", "alignItems": "center"}
                         ),
-                        
                         dbc.Col(
                             dbc.Button("Open Teleoperation", id="open-joystick-btn", color="primary", size="sm"),
                             width="auto",
                             className="text-end",
-                        ),
-
-                        dbc.Col(
-                        [
-                            DashIconify(icon="mdi:battery-90", width=30, height=30, style={"color": "white", "marginRight": "5px"}),
-                            html.Span(id="battery-percen", children="--%", style={"color": "white", "fontSize": "16px"})
-                        ],
-                        width="auto",
-                        className="text-end"
                         ),
 
                     ],

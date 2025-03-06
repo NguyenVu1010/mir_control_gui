@@ -16,7 +16,6 @@ class Sidebar:
                     [
                         dbc.NavLink("Draw Mode", href="/draw-mode", id="draw-mode-link", className="text-white"),
                         dbc.NavLink("RViz", href="/rviz", id="rviz-link", className="text-white"),
-                        dbc.NavLink("Missions", href="/missions", id="missions-link", className="text-white"),
                         dbc.NavLink("Sounds", href="#", id="sounds-link", className="text-white"),
                         dbc.NavLink("Transitions", href="#", id="transitions-link", className="text-white"),
                         dbc.NavLink("I/O Modules", href="#", id="io-modules-link", className="text-white"),

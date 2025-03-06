@@ -30,7 +30,7 @@ class GoalSelector:
                 pose.pose.orientation.w = float(w)
 
                 self.goal_pub.publish(pose)
-                return "Goal published successfully!"
+                return "Goal published succezssfully!"
             except Exception as e:
                 return f"Error publishing goal: {e}"
         else:

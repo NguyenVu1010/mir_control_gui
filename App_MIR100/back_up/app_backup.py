@@ -10,7 +10,6 @@ from geometry_msgs.msg import Twist
 from components.draw_mode import create_draw_mode_layout
 import plotly.graph_objects as go
 from function_draw_mode.draw_line_mode_callbacks import *
-from function_draw_mode.draw_arc_mode_callbacks import *
 from function_teleop_control.teleop_control import TeleopControl
 import random
 from dash import callback_context
@@ -44,7 +43,6 @@ else:
 linear_speed = 0.5
 angular_speed = 0.3
 
-#The check is performed to determine if ROS is properly initialized
 if pub:
     joystick_control = TeleopControl(pub, linear_speed, angular_speed)
 else:
@@ -98,13 +96,12 @@ def login(n_clicks, username, password):
 )
 def display_page(pathname):
     if pathname == '/draw-mode':
-          from function_draw_mode import draw_line_mode_callbacks, draw_arc_mode_callbacks
-          return create_draw_mode_layout()
+        return create_draw_mode_layout()
     elif pathname == '/maps':
         return map_section.create_map_section()
     elif pathname == '/change-password':
         return change_password_page.layout
-    elif pathname == '/rviz':
+    elif pathname == '/rviz': 
         return create_rviz_section()
     else:
         return html.Div(
@@ -291,7 +288,7 @@ def update_path_image(n):
         f"/static/path_image.png?random={random_value}",
     )
 
-last_modified_time = 0
+last_modified_time = 0 
 
 @app.callback(
     [Output("robot-image", "src")],
@@ -299,15 +296,15 @@ last_modified_time = 0
 )
 def update_robot_image(n):
     global last_modified_time
-    image_path = "static/robot_image.png"
+    image_path = "/home/duc/Downloads/App MIR100/static/robot_image.png"
     try:
         modified_time = os.path.getmtime(image_path)
     except FileNotFoundError:
         print(f"Error: Image file not found: {image_path}")
-        return [dash.no_update]
+        return [dash.no_update] 
     except Exception as e:
         print(f"Other error getting modified time: {e}")
-        return [dash.no_update]
+        return [dash.no_update] 
     if modified_time > last_modified_time:
         last_modified_time = modified_time
         #print("dash- callback updating img with: " + image_path + "?time=" + str(modified_time))
@@ -323,7 +320,7 @@ app.layout = html.Div(
         html.Div(id="joystick-output", style={"margin": "20px", "fontSize": "0px"}),
         dcc.Interval(
             id='interval-component',
-            interval=100,
+            interval=100, 
             n_intervals=0
         )
     ]
@@ -368,7 +365,7 @@ def update_active_link(pathname):
                 href=link["href"],
                 id=link["id"],
                 className="text-white",
-                active=active
+                active=active  
             )
         )
     return updated_links

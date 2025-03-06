@@ -8,8 +8,8 @@ import math
 import tf
 import tf.transformations
 
-OUTPUT_IMAGE_PATH = "static/robot_image.png"
-MAP_IMAGE_PATH = "static/map_image.png"
+OUTPUT_IMAGE_PATH = "App_MIR100/static/robot_image.png"
+MAP_IMAGE_PATH = "App_MIR100/static/map_image.png"
 IMAGE_WIDTH = None
 IMAGE_HEIGHT = None
 

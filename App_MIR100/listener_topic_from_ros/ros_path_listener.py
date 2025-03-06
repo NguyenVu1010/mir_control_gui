@@ -3,8 +3,8 @@ from nav_msgs.msg import Path
 from PIL import Image, ImageDraw
 from nav_msgs.msg import OccupancyGrid
 
-OUTPUT_IMAGE_PATH = "App_MIR100/static/path_image.png"
-image_path = "App_MIR100/static/map_image.png"
+OUTPUT_IMAGE_PATH = "static/path_image.png"
+image_path = "static/map_image.png"
 img = Image.open(image_path)
 IMAGE_WIDTH, IMAGE_HEIGHT = img.size
 POINT_SIZE = 0.01  

@@ -5,7 +5,7 @@ from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
 class TeleopControl:
-    def __init__(self, pub, linear_speed=0.5, angular_speed=0.3):
+    def __init__(self, pub, linear_speed, angular_speed):
         self.pub = pub
         self.linear_speed = linear_speed
         self.angular_speed = angular_speed
